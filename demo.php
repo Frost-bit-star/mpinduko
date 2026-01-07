@@ -1,48 +1,119 @@
-<?php
-require __DIR__ . '/vendor/autoload.php';
+const express = require("express");
+const fetch = require("node-fetch");
+const cors = require("cors");
+const path = require("path");
 
-use KyPHP\KyPHP;
+const app = express();
+app.use(cors());
+app.use(express.json());
+app.use(express.static(path.join(__dirname, "public")));
 
-/**
- * Helper to measure speed
- */
-function speed(float $start): string {
-    return number_format((microtime(true) - $start) * 1000, 2) . " ms";
-}
+const PORT = process.env.PORT || 3000;
 
-// ----------------------
-// Create KyPHP client
-// ----------------------
-$client = new KyPHP();
+// 1. SEARCH ENDPOINT
+app.get("/search", async (req, res) => {
+  const { q } = req.query;
+  if (!q) return res.status(400).json({ error: "No query provided" });
 
-// ----------------------
-// Example: Fetch UrbanGlam Reviews API
-// ----------------------
-echo "=== KyPHP API Demo: UrbanGlam Reviews ===\n\n";
+  try {
+    const response = await fetch(
+      `https://apis.davidcyriltech.my.id/search/xvideo?text=${encodeURIComponent(q)}`
+    );
+    const data = await response.json();
 
-$t = microtime(true);
-
-try {
-    $response = $client
-        ->get('https://urbanglamhousekenya.com/api/menu')
-        ->header('User-Agent', 'Mozilla/5.0')
-        ->send();
-
-    echo "HTTP Status: {$response['status']}\n";
-
-    // Try decoding JSON
-    $json = json_decode($response['body'], true);
-
-    if (is_array($json)) {
-        echo "Parsed JSON response:\n";
-        print_r($json);
-    } else {
-        echo "⚠️ Response is not valid JSON or returned an error:\n";
-        echo $response['body'] . "\n";
+    // Rewrite video URLs to our /stream endpoint
+    if (data.result) {
+      data.result = data.result.map((v) => ({
+        ...v,
+        download_url: `/stream?url=${encodeURIComponent(v.download_url)}`,
+      }));
     }
 
-} catch (\Exception $e) {
-    echo "Request failed: " . $e->getMessage() . "\n";
-}
+    res.json(data);
+  } catch (err) {
+    console.error("Search Error:", err);
+    res.status(500).json({ error: "Failed to fetch search results" });
+  }
+});
 
-echo "Request time: " . speed($t) . "\n";
+// 2. VIDEO DETAILS ENDPOINT
+app.get("/video", async (req, res) => {
+  const { url } = req.query;
+  if (!url) return res.status(400).json({ error: "No video URL provided" });
+
+  try {
+    const response = await fetch(
+      `https://apis.davidcyriltech.my.id/xvideo?url=${encodeURIComponent(url)}`
+    );
+    const data = await response.json();
+    res.json(data);
+  } catch (err) {
+    console.error("Video Fetch Error:", err);
+    res.status(500).json({ error: "Failed to fetch video info" });
+  }
+});
+
+// 3. STREAM VIDEO FOR HTML5 PLAYER
+app.get("/stream", async (req, res) => {
+  const { url } = req.query;
+  if (!url) return res.status(400).json({ error: "No URL provided" });
+
+  try {
+    const headers = {};
+    if (req.headers.range) {
+      headers.Range = req.headers.range;
+    }
+
+    const videoResponse = await fetch(url, { headers });
+    if (!videoResponse.ok) throw new Error("Failed to fetch video stream");
+
+    // Forward essential headers for video streaming
+    videoResponse.headers.forEach((value, key) => {
+      if (
+        ["content-type", "content-length", "content-range", "accept-ranges"].includes(
+          key.toLowerCase()
+        )
+      ) {
+        res.setHeader(key, value);
+      }
+    });
+
+    res.setHeader("Access-Control-Allow-Origin", "*");
+
+    videoResponse.body.pipe(res);
+  } catch (err) {
+    console.error("Stream Error:", err);
+    res.status(500).json({ error: "Failed to stream video" });
+  }
+});
+
+// 4. DOWNLOAD VIDEO ENDPOINT
+app.get("/download", async (req, res) => {
+  const { url, title } = req.query;
+  if (!url || !title) return res.status(400).json({ error: "No URL or title provided" });
+
+  try {
+    // Fetch direct download link
+    const apiResponse = await fetch(
+      `https://apis-keith.vercel.app/download/porn?url=${encodeURIComponent(url)}`
+    );
+    const data = await apiResponse.json();
+
+    if (!data?.result?.url) throw new Error("Failed to get download link");
+
+    const downloadUrl = data.result.url;
+    const safeTitle = title.replace(/[^a-zA-Z0-9]/g, "_") + ".mp4";
+
+    const videoResponse = await fetch(downloadUrl);
+    if (!videoResponse.ok) throw new Error("Failed to fetch video for download");
+
+    res.setHeader("Content-Disposition", `attachment; filename="${safeTitle}"`);
+    res.setHeader("Content-Type", "video/mp4");
+    videoResponse.body.pipe(res);
+  } catch (err) {
+    console.error("Download Error:", err);
+    res.status(500).json({ error: "Failed to download video" });
+  }
+});
+
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
