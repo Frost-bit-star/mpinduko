@@ -1,0 +1,21 @@
+{
+    "name": "u0_a226/kyphp-demo",
+    "description": "lol",
+    "type": "project",
+    "require": {
+        "frost-bit-star/kyphp": "^1.0"
+    },
+    "license": "mit",
+    "autoload": {
+        "psr-4": {
+            "U0A226\\KyphpDemo\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Frost-bit-star",
+            "email": "morganmilstone983@gmail.com"
+        }
+    ],
+    "minimum-stability": "stable"
+}

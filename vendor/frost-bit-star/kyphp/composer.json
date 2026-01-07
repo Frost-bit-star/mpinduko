@@ -1,0 +1,31 @@
+{
+    "name": "frost-bit-star/kyphp",
+    "description": "Ky-style minimal and fast PHP HTTP client with async batch support, hooks, retries, and JSON handling.",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Morgan Miller",
+            "email": "morganmilstone983@gmail.com"
+        }
+    ],
+    "require": {
+        "php": ">=8.1"
+    },
+    "autoload": {
+        "psr-4": {
+            "KyPHP\\": "src/"
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true,
+    "extra": {
+        "branch-alias": {
+            "dev-main": "1.0-dev"
+        }
+    },
+    "suggest": {
+        "ext-curl": "Required for optimal HTTP requests",
+        "ext-json": "Required for JSON encoding/decoding"
+    }
+}

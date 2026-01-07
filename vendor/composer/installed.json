@@ -1,0 +1,58 @@
+{
+    "packages": [
+        {
+            "name": "frost-bit-star/kyphp",
+            "version": "1.1.0",
+            "version_normalized": "1.1.0.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/Frost-bit-star/KyPHP.git",
+                "reference": "9c3095513dd22848027378406dcba8a5afbb61d8"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/Frost-bit-star/KyPHP/zipball/9c3095513dd22848027378406dcba8a5afbb61d8",
+                "reference": "9c3095513dd22848027378406dcba8a5afbb61d8",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=8.1"
+            },
+            "suggest": {
+                "ext-curl": "Required for optimal HTTP requests",
+                "ext-json": "Required for JSON encoding/decoding"
+            },
+            "time": "2026-01-06T20:14:46+00:00",
+            "type": "library",
+            "extra": {
+                "branch-alias": {
+                    "dev-main": "1.0-dev"
+                }
+            },
+            "installation-source": "dist",
+            "autoload": {
+                "psr-4": {
+                    "KyPHP\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Morgan Miller",
+                    "email": "morganmilstone983@gmail.com"
+                }
+            ],
+            "description": "Ky-style minimal and fast PHP HTTP client with async batch support, hooks, retries, and JSON handling.",
+            "support": {
+                "issues": "https://github.com/Frost-bit-star/KyPHP/issues",
+                "source": "https://github.com/Frost-bit-star/KyPHP/tree/1.1.0"
+            },
+            "install-path": "../frost-bit-star/kyphp"
+        }
+    ],
+    "dev": true,
+    "dev-package-names": []
+}

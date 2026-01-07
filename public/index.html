@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mpinduko Studio - Streaming App</title>
+
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com"></script>
+<!-- FontAwesome -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+<style>
+  body { margin:0; font-family: 'Roboto', sans-serif; background: #0d0d0d; color: #fff; overflow:hidden; }
+  :root { --primary: #FFD700; }
+
+  /* Header */
+  header { backdrop-filter: blur(10px); background: rgba(0,0,0,0.6); z-index:50; position: fixed; top:0; width:100%; display:flex; justify-content:space-between; align-items:center; padding:0.5rem 1rem; height:60px; }
+  header input { background: rgba(255,255,255,0.1); border-radius:999px; padding:0.5rem 1rem; color:#fff; width:180px; outline:none; transition: width 0.3s ease; }
+  header input:focus { width:250px; }
+  header input::placeholder { color: #fff; opacity:0.7; }
+
+  /* Footer */
+  footer { backdrop-filter: blur(10px); background: rgba(0,0,0,0.6); z-index:50; position:fixed; bottom:0; width:100%; display:flex; justify-content:space-around; align-items:center; height:60px; }
+
+  /* TikTok Feed */
+  #tiktokFeed {
+    scroll-snap-type: y mandatory;
+    overflow-y: scroll;
+    height: calc(100vh - 120px); /* header + footer */
+    scroll-behavior: smooth;
+  }
+  .video-wrapper { scroll-snap-align: start; height: 100%; width: 100%; position: relative; display: flex; justify-content: center; align-items: center; }
+  .blur-bg { position: absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; filter: blur(20px) brightness(0.5); z-index:0; }
+  .main-video { position:absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; z-index:1; }
+
+  /* Overlay */
+  .overlay { position:absolute; bottom:90px; left:16px; z-index:2; max-width:65%; }
+  .overlay h2 { font-size:1.25rem; font-weight:bold; }
+  .overlay .actions { display:flex; flex-direction:column; gap:1rem; margin-top:0.5rem; }
+  .overlay button { background: rgba(255,255,255,0.15); color:#FFD700; padding:0.5rem; border-radius:999px; width:50px; height:50px; display:flex; justify-content:center; align-items:center; transition: all 0.2s ease-in-out; }
+  .overlay button:hover { background: var(--primary); color:#000; transform: scale(1.2); }
+
+  /* Age modal */
+  #ageModal { display:flex; }
+
+  /* Search container */
+  #searchContainer { position:fixed; top:60px; left:0; width:100%; padding:0.5rem 1rem; z-index:40; }
+</style>
+</head>
+<body>
+
+<!-- Age Verification Modal -->
+<div id="ageModal" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50">
+  <div class="bg-gray-900 p-6 rounded-lg text-center max-w-sm w-full">
+    <h2 class="text-2xl font-bold mb-4">Age Verification</h2>
+    <p class="mb-6">You must be 19 or older to enter this site. Are you 19 or older?</p>
+    <button id="confirmAge" class="bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-2 px-4 rounded mr-2">Yes</button>
+    <button id="denyAge" class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded">No</button>
+  </div>
+</div>
+
+<!-- Header -->
+<header>
+  <div class="flex items-center gap-2">
+      <a href="profile.html"><img src="https://res.cloudinary.com/dnvwfo2g1/image/upload/v1714935416/1711235014696_xvu4lm.png" alt="Profile" class="w-10 h-10 rounded-full"></a>
+      <span class="text-yellow-500 font-semibold">Hi,</span>
+  </div>
+  <input type="text" id="searchInput" placeholder="Search...">
+  <div class="flex items-center gap-2">
+      <button onclick="startQRScanner()"><i class="fas fa-qrcode text-yellow-500 text-2xl"></i></button>
+      <a href="#"><i class="far fa-bell text-yellow-500 text-2xl"></i></a>
+  </div>
+</header>
+
+<!-- TikTok Feed -->
+<div id="tiktokFeed" class="hidden mt-16"></div>
+
+<!-- Error Message -->
+<div id="errorMsg" class="text-red-500 text-center py-4 hidden"></div>
+
+<!-- Footer -->
+<footer>
+  <a href="#" class="flex flex-col items-center text-yellow-500">
+    <i class="fas fa-home text-2xl"></i>
+    <span class="text-xs">Home</span>
+  </a>
+  <a href="me.html" class="flex flex-col items-center text-yellow-500">
+    <i class="fas fa-user text-2xl"></i>
+    <span class="text-xs">Me</span>
+  </a>
+</footer>
+
+<script>
+let ageConfirmed = false;
+let videos = [];
+let currentIndex = 0;
+
+document.getElementById('confirmAge').addEventListener('click', ()=>{
+  ageConfirmed = true;
+  document.getElementById('ageModal').style.display='none';
+  initApp();
+});
+document.getElementById('denyAge').addEventListener('click', ()=>{ window.location.href="https://google.com"; });
+
+function initApp(){
+  const feed = document.getElementById('tiktokFeed');
+  feed.classList.remove('hidden');
+  loadNextBatch();
+  feed.addEventListener('scroll', handleScrollAutoplay);
+
+  // Search
+  const searchInput = document.getElementById('searchInput');
+  searchInput.addEventListener('keyup', e=>{ if(e.key==='Enter') searchVideos(searchInput.value); });
+}
+
+// Load 3 videos at a time
+async function loadNextBatch(searchTerm='trending'){
+  const feed = document.getElementById('tiktokFeed');
+  if(currentIndex >= videos.length){
+    try{
+      const res = await fetch(`/api/search.php?q=${encodeURIComponent(searchTerm)}`);
+      const data = await res.json();
+      if(data.success) videos.push(...data.result);
+      else { showError('No videos found.'); return; }
+    }catch(e){ showError('Error fetching videos.'); return; }
+  }
+
+  for(let i=0;i<3 && currentIndex<videos.length;i++, currentIndex++){
+    const v = videos[currentIndex];
+    const wrapper = document.createElement('div');
+    wrapper.className='video-wrapper';
+    wrapper.innerHTML = `
+      <video autoplay muted loop class="blur-bg">
+        <source src="${v.download_url}" type="video/mp4">
+      </video>
+      <video autoplay muted playsinline class="main-video">
+        <source src="${v.download_url}" type="video/mp4">
+      </video>
+      <div class="overlay">
+        <h2>${v.title}</h2>
+        <div class="actions">
+          <button><i class="fas fa-heart"></i></button>
+          <button><i class="fas fa-comment"></i></button>
+          <button><i class="fas fa-share"></i></button>
+        </div>
+      </div>
+    `;
+    feed.appendChild(wrapper);
+  }
+
+  handleScrollAutoplay();
+}
+
+// Only play video in view
+function handleScrollAutoplay(){
+  const feed = document.getElementById('tiktokFeed');
+  const wrappers = feed.querySelectorAll('.video-wrapper');
+  wrappers.forEach(wrapper=>{
+    const video = wrapper.querySelector('.main-video');
+    const rect = wrapper.getBoundingClientRect();
+    const fullyVisible = rect.top >= 60 && rect.bottom <= window.innerHeight - 60;
+    if(fullyVisible){ video.muted=false; video.play().catch(()=>{}); }
+    else{ video.pause(); }
+  });
+
+  // Preload next batch when near bottom
+  if(feed.scrollTop + feed.clientHeight >= feed.scrollHeight - 100){
+    loadNextBatch();
+  }
+}
+
+function searchVideos(query){
+  videos = [];
+  currentIndex = 0;
+  document.getElementById('tiktokFeed').innerHTML='';
+  loadNextBatch(query);
+}
+
+function showError(msg){
+  const err = document.getElementById('errorMsg');
+  err.textContent=msg;
+  err.classList.remove('hidden');
+}
+
+function startQRScanner(){ alert("QR Scanner not implemented yet."); }
+</script>
+
+</body>
+</html>
