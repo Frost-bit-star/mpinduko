@@ -2,15 +2,12 @@
 require __DIR__ . '/../vendor/autoload.php';
 use KyPHP\KyPHP;
 
-header('Content-Type: application/json; charset=utf-8');
+header('Content-Type: application/json');
 
 $q = $_GET['q'] ?? null;
 if (!$q) {
     http_response_code(400);
-    echo json_encode([
-        'success' => false,
-        'error'   => 'No query provided'
-    ]);
+    echo json_encode(['error' => 'No query provided']);
     exit;
 }
 
@@ -21,25 +18,23 @@ try {
         ->query(['text' => $q])
         ->sendJson();
 
-    // Normalize result structure
-    $results = $res['result'] ?? [];
+    // Map result to include direct download URLs for frontend
+    if (!empty($res['result'])) {
+        foreach ($res['result'] as &$v) {
+            if (!empty($v['url'])) {
+                // Fetch video metadata to get direct MP4 URL
+                $videoMeta = $client
+                    ->get('https://apis.davidcyriltech.my.id/xvideo')
+                    ->query(['url' => $v['url']])
+                    ->sendJson();
 
-    // Rewrite download_url to stream via video.php
-    foreach ($results as &$v) {
-        if (!empty($v['download_url'])) {
-            $v['download_url'] =
-                '/api/video.php?src=' . urlencode($v['download_url']);
+                $v['download_url'] = $videoMeta['result']['download_url'] ?? null;
+            }
         }
     }
 
-    echo json_encode([
-        'success' => true,
-        'result'  => $results
-    ]);
+    echo json_encode($res);
 } catch (Throwable $e) {
     http_response_code(500);
-    echo json_encode([
-        'success' => false,
-        'error'   => 'Failed to fetch search results'
-    ]);
+    echo json_encode(['error' => 'Failed to fetch search results']);
 }
