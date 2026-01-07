@@ -6,14 +6,14 @@ ini_set('zlib.output_compression', 'Off');
 $src = $_GET['src'] ?? null;
 if (!$src) {
     http_response_code(400);
-    exit;
+    exit('No source provided.');
 }
 
 /**
  * Forward Range header (CRITICAL for <video>)
  */
 $headers = [];
-if (isset($_SERVER['HTTP_RANGE'])) {
+if (!empty($_SERVER['HTTP_RANGE'])) {
     $headers[] = 'Range: ' . $_SERVER['HTTP_RANGE'];
 }
 
@@ -27,7 +27,7 @@ header('Cache-Control: no-store');
 header('X-Content-Type-Options: nosniff');
 
 /**
- * Stream via cURL
+ * Stream via cURL with browser-like headers
  */
 $ch = curl_init($src);
 curl_setopt_array($ch, [
@@ -38,6 +38,10 @@ curl_setopt_array($ch, [
     CURLOPT_TIMEOUT => 0,
     CURLOPT_BUFFERSIZE => 1024 * 1024,
 
+    // 🔥 This is the key: pretend to be a browser
+    CURLOPT_USERAGENT => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36',
+    CURLOPT_REFERER   => $src,
+
     CURLOPT_WRITEFUNCTION => function ($ch, $data) {
         echo $data;
         flush();
@@ -46,11 +50,11 @@ curl_setopt_array($ch, [
 
     CURLOPT_HEADERFUNCTION => function ($ch, $header) {
         // Forward critical headers from upstream
-        if (preg_match('/^(HTTP\/|Content-Range:|Content-Length:)/i', $header)) {
+        if (preg_match('/^(HTTP\/|Content-Range:|Content-Length:|Content-Type:)/i', $header)) {
             header(trim($header));
         }
         return strlen($header);
-    }
+    },
 ]);
 
 curl_exec($ch);
